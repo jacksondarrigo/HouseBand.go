@@ -1,4 +1,4 @@
-module code.darrigo.dev/houseband
+module github.com/jacksondarrigo/HouseBand.go
 
 go 1.17
 

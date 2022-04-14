@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"code.darrigo.dev/houseband/pkg/cmd/houseband"
+	"github.com/jacksondarrigo/HouseBand.go/pkg/cmd/houseband"
 )
 
 func main() {
