@@ -88,18 +88,18 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 
 	invokingMember := interact.Member.User.ID
 	invokingMemberChannel, err := bot.State.VoiceState(interact.GuildID, invokingMember)
+	if err != nil {
+		fmt.Println("Error while getting user channel: ", err)
+		return
+	}
 	//
 	// Check for existing musicPlayer, or create one if one doesn't exist
 	//
-	player, ok := bot.musicPlayers[interact.GuildID]
-	if !ok {
-		if err != nil {
-			fmt.Println("Error while getting user channel: ", err)
-			return
-		}
-		bot.newMusicPlayer(invokingMemberChannel)
-		player = bot.musicPlayers[interact.GuildID]
+	if bot.musicPlayers[interact.GuildID] == nil {
+		bot.musicPlayers[interact.GuildID] = newMusicPlayer(invokingMemberChannel)
 	}
+	player := bot.musicPlayers[interact.GuildID]
+	player.bot = bot
 	//
 	// Create and queue songRequest from URL provided by user
 	//

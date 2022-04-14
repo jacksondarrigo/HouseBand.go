@@ -28,10 +28,11 @@ type musicPlayer struct {
 	started      bool
 }
 
-func (bot *Bot) newMusicPlayer(voiceChannel *discordgo.VoiceState) {
+func newMusicPlayer(voiceChannel *discordgo.VoiceState) *musicPlayer {
 	var queue Queue = Queue{make(chan *songRequest, 24)}
 	var voiceCon *discordgo.VoiceConnection
-	bot.musicPlayers[voiceChannel.GuildID] = &musicPlayer{queue, voiceChannel, voiceCon, bot, make(chan bool), false}
+	var bot *Bot
+	return &musicPlayer{queue, voiceChannel, voiceCon, bot, make(chan bool), false}
 }
 
 func (player *musicPlayer) startPlayer() {
