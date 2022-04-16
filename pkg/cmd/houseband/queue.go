@@ -1,15 +1,18 @@
 package houseband
 
 type Queue struct {
-	items chan *songRequest
+	items []*songRequest
 }
 
 func (queue *Queue) enqueue(item *songRequest) {
-	queue.items <- item
+	queue.items = append(queue.items, item)
 }
 
 func (queue *Queue) dequeue() (item *songRequest) {
-	item = <-queue.items
+	item = queue.items[0]
+	if len(queue.items) > 1 {
+		queue.items = queue.items[1:]
+	}
 	return
 }
 

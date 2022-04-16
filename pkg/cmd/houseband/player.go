@@ -20,63 +20,69 @@ const (
 )
 
 type musicPlayer struct {
-	queue        Queue
-	voiceChannel *discordgo.VoiceState
-	voiceConn    *discordgo.VoiceConnection
-	bot          *Bot
-	stop         chan bool
-	started      bool
+	*discordgo.VoiceConnection
+	queue      chan *songRequest
+	nowPlaying chan *songRequest
+	stop       chan bool
 }
 
-func newMusicPlayer(voiceChannel *discordgo.VoiceState) *musicPlayer {
-	var queue Queue = Queue{make(chan *songRequest, 24)}
-	var voiceCon *discordgo.VoiceConnection
-	var bot *Bot
-	return &musicPlayer{queue, voiceChannel, voiceCon, bot, make(chan bool), false}
+func (bot *Bot) newMusicPlayer(voiceChannel *discordgo.VoiceState) *musicPlayer {
+	//var queue Queue = Queue{}
+	var voiceConn *discordgo.VoiceConnection
+	player := &musicPlayer{voiceConn, make(chan *songRequest, 24), make(chan *songRequest), make(chan bool)}
+	go func() {
+		var err error
+		voiceConn, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
+		if err != nil {
+			fmt.Println("Error while joining channel: ", err)
+		}
+		player.startPlayer()
+	}()
+	return player
 }
 
+//
+// Main player loop
+//
 func (player *musicPlayer) startPlayer() {
-	player.started = true
-	var err error
-	player.voiceConn, err = player.bot.ChannelVoiceJoin(player.voiceChannel.GuildID, player.voiceChannel.ChannelID, false, false)
-	if err != nil {
-		fmt.Println("Error while joining channel: ", err)
-	}
 	for {
-		if player.queue.length() < 1 {
+		nextSong, ok := <-player.queue
+		if !ok {
 			break
 		}
-		nextSong := player.queue.dequeue()
-		player.bot.ChannelMessageSend(nextSong.requestChannelID, "**Now Playing:** `"+nextSong.title+"`")
+		fmt.Println("received ", nextSong, " on ", player)
+		player.nowPlaying <- nextSong
 		player.playAudio(nextSong.playURL)
 	}
-	delete(player.bot.musicPlayers, player.voiceConn.GuildID)
-	player.voiceConn.Disconnect()
+	player.stop <- true
+	player.Disconnect()
 }
 
 func (player *musicPlayer) playAudio(url string) {
+
+	fmt.Println("playing")
 	pcmAudio := make(chan []int16, 2)
 	opusAudio := make(chan []byte, 2)
 	go func() {
+		fmt.Println("getting")
 		player.getAudio(url, pcmAudio)
 	}()
 	go func() {
+		fmt.Println("encoding")
 		player.encodeAudio(pcmAudio, opusAudio)
 	}()
-	go func() {
-		player.sendAudio(opusAudio)
-	}()
-	<-player.stop
+	fmt.Println("sending")
+	player.sendAudio(opusAudio)
 }
 
-func (player *musicPlayer) encodeAudio(pcmAudio <-chan []int16, opusAudio chan<- []byte) {
+func (player *musicPlayer) encodeAudio(input <-chan []int16, output chan<- []byte) {
 	opusEncoder, err := gopus.NewEncoder(frameRate, channels, gopus.Audio)
 	if err != nil {
 		fmt.Println("NewEncoder Error: ", err)
 		return
 	}
 	for {
-		pcm, ok := <-pcmAudio
+		pcm, ok := <-input
 		if !ok {
 			break
 		}
@@ -85,29 +91,47 @@ func (player *musicPlayer) encodeAudio(pcmAudio <-chan []int16, opusAudio chan<-
 			fmt.Println("Encoding Error: ", err)
 			break
 		}
-		opusAudio <- opus
+		output <- opus
 	}
-	close(opusAudio)
+	close(output)
 }
 
 func (player *musicPlayer) sendAudio(opusAudio <-chan []byte) {
-	err := player.voiceConn.Speaking(true)
+	// i := 0
+	// for {
+	// 	if !player.Ready {
+	// 		time.Sleep(1 * time.Second)
+	// 		i++
+	// 	} else {
+	// 		break
+	// 	}
+	// 	if i > 10 {
+	// 		return
+	// 	}
+	// }
+	fmt.Println("player is ", player.Ready)
+	fmt.Println("setting speaking on ", player.ChannelID)
+	err := player.Speaking(true)
 	if err != nil {
 		fmt.Println("Couldn't set speaking: ", err)
 	}
 	for {
+		// if !player.Ready || player.OpusSend == nil {
+		// 	continue
+		// }
+
 		opus, ok := <-opusAudio
 		if !ok {
 			break
 		}
 		// TODO: needed?
-		if !player.voiceConn.Ready || player.voiceConn.OpusSend == nil {
-			break
-		}
-		player.voiceConn.OpusSend <- opus
+		// if !player.Ready || player.OpusSend == nil {
+		// 	break
+		// }
+		player.OpusSend <- opus
 	}
-	player.stop <- true
-	err = player.voiceConn.Speaking(false)
+	//player.stop <- true
+	err = player.Speaking(false)
 	if err != nil {
 		fmt.Println("Couldn't stop speaking: ", err)
 	}

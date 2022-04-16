@@ -86,26 +86,25 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 		return
 	}
 
-	invokingMember := interact.Member.User.ID
-	invokingMemberChannel, err := bot.State.VoiceState(interact.GuildID, invokingMember)
-	if err != nil {
-		fmt.Println("Error while getting user channel: ", err)
-		return
-	}
 	//
 	// Check for existing musicPlayer, or create one if one doesn't exist
 	//
 	if bot.musicPlayers[interact.GuildID] == nil {
-		bot.musicPlayers[interact.GuildID] = newMusicPlayer(invokingMemberChannel)
+		invokingMemberChannel, err := bot.State.VoiceState(interact.GuildID, interact.Member.User.ID)
+		if err != nil {
+			fmt.Println("Error while getting user channel: ", err)
+			return
+		}
+		bot.musicPlayers[interact.GuildID] = bot.newMusicPlayer(invokingMemberChannel)
 	}
 	player := bot.musicPlayers[interact.GuildID]
-	player.bot = bot
+	//player.bot = bot
 	//
 	// Create and queue songRequest from URL provided by user
 	//
 	url := interact.ApplicationCommandData().Options[0].StringValue()
 	request := newSongRequest(url, interact.ChannelID)
-	player.queue.enqueue(request)
+	player.queue <- request
 
 	//
 	// Updated deferred response
@@ -114,14 +113,19 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 		Content: "*Added to Queue:* `" + url + "`",
 	})
 	if err != nil {
-		fmt.Println("Error while getting channel: ", err)
+		fmt.Println("Error while updating interaction response: ", err)
 		return
 	}
+	go func() {
+		nowPlaying := <-player.nowPlaying
+		_, err := bot.ChannelMessageSend(nowPlaying.requestChannelID, "**Now Playing:** `"+nowPlaying.title+"`")
+		if err != nil {
+			fmt.Println("Error while sending channel message: ", err)
+		}
 
-	//
-	// Start player, if not already started
-	//
-	if !(player.started) {
-		go player.startPlayer()
-	}
+	}()
+	go func() {
+		<-player.stop
+		delete(bot.musicPlayers, player.GuildID)
+	}()
 }
