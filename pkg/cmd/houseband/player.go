@@ -21,21 +21,22 @@ const (
 
 type musicPlayer struct {
 	*discordgo.VoiceConnection
-	queue      chan *songRequest
-	nowPlaying chan *songRequest
+	queue      chan songRequest
+	nowPlaying chan songRequest
 	stop       chan bool
 }
 
 func (bot *Bot) newMusicPlayer(voiceChannel *discordgo.VoiceState) *musicPlayer {
 	//var queue Queue = Queue{}
 	var voiceConn *discordgo.VoiceConnection
-	player := &musicPlayer{voiceConn, make(chan *songRequest, 24), make(chan *songRequest), make(chan bool)}
+	player := &musicPlayer{voiceConn, make(chan songRequest, 24), make(chan songRequest), make(chan bool)}
 	go func() {
 		var err error
 		voiceConn, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
 		if err != nil {
 			fmt.Println("Error while joining channel: ", err)
 		}
+		player.VoiceConnection = voiceConn
 		player.startPlayer()
 	}()
 	return player
