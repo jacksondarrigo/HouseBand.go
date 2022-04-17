@@ -54,6 +54,9 @@ func (player *musicPlayer) startPlayer() {
 		fmt.Println("received ", nextSong, " on ", player)
 		player.nowPlaying <- nextSong
 		player.playAudio(nextSong.playURL)
+		if len(player.queue) < 1 {
+			break
+		}
 	}
 	player.stop <- true
 	player.Disconnect()
@@ -98,29 +101,11 @@ func (player *musicPlayer) encodeAudio(input <-chan []int16, output chan<- []byt
 }
 
 func (player *musicPlayer) sendAudio(opusAudio <-chan []byte) {
-	// i := 0
-	// for {
-	// 	if !player.Ready {
-	// 		time.Sleep(1 * time.Second)
-	// 		i++
-	// 	} else {
-	// 		break
-	// 	}
-	// 	if i > 10 {
-	// 		return
-	// 	}
-	// }
-	fmt.Println("player is ", player.Ready)
-	fmt.Println("setting speaking on ", player.ChannelID)
 	err := player.Speaking(true)
 	if err != nil {
 		fmt.Println("Couldn't set speaking: ", err)
 	}
 	for {
-		// if !player.Ready || player.OpusSend == nil {
-		// 	continue
-		// }
-
 		opus, ok := <-opusAudio
 		if !ok {
 			break
@@ -131,7 +116,6 @@ func (player *musicPlayer) sendAudio(opusAudio <-chan []byte) {
 		// }
 		player.OpusSend <- opus
 	}
-	//player.stop <- true
 	err = player.Speaking(false)
 	if err != nil {
 		fmt.Println("Couldn't stop speaking: ", err)

@@ -98,7 +98,7 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 		bot.musicPlayers[interact.GuildID] = bot.newMusicPlayer(invokingMemberChannel)
 	}
 	player := bot.musicPlayers[interact.GuildID]
-	//player.bot = bot
+
 	//
 	// Create and queue songRequest from URL provided by user
 	//
