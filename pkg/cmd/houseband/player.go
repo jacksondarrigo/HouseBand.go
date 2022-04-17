@@ -51,7 +51,6 @@ func (player *musicPlayer) startPlayer() {
 		if !ok {
 			break
 		}
-		fmt.Println("received ", nextSong, " on ", player)
 		player.nowPlaying <- nextSong
 		player.playAudio(nextSong.playURL)
 		if len(player.queue) < 1 {
@@ -64,18 +63,14 @@ func (player *musicPlayer) startPlayer() {
 
 func (player *musicPlayer) playAudio(url string) {
 
-	fmt.Println("playing")
 	pcmAudio := make(chan []int16, 2)
 	opusAudio := make(chan []byte, 2)
 	go func() {
-		fmt.Println("getting")
 		player.getAudio(url, pcmAudio)
 	}()
 	go func() {
-		fmt.Println("encoding")
 		player.encodeAudio(pcmAudio, opusAudio)
 	}()
-	fmt.Println("sending")
 	player.sendAudio(opusAudio)
 }
 
