@@ -19,6 +19,8 @@ func (bot *Bot) commandHandler(i *discordgo.InteractionCreate) {
 	switch i.ApplicationCommandData().Name {
 	case "play":
 		bot.play(i)
+	case "stop":
+		bot.stop(i)
 	}
 }
 

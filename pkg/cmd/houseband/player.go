@@ -1,15 +1,9 @@
 package houseband
 
 import (
-	"bufio"
-	"encoding/binary"
 	"fmt"
-	"io"
-	"os/exec"
-	"strconv"
 
 	"github.com/bwmarrin/discordgo"
-	"layeh.com/gopus"
 )
 
 const (
@@ -21,129 +15,102 @@ const (
 
 type musicPlayer struct {
 	*discordgo.VoiceConnection
-	queue      chan songRequest
-	nowPlaying chan songRequest
+	queue      chan ytRequest
+	opusStream *opusStream
 	stop       chan bool
 }
 
-func (bot *Bot) newMusicPlayer(voiceChannel *discordgo.VoiceState) *musicPlayer {
-	//var queue Queue = Queue{}
-	var voiceConn *discordgo.VoiceConnection
-	player := &musicPlayer{voiceConn, make(chan songRequest, 24), make(chan songRequest), make(chan bool)}
-	go func() {
-		var err error
-		voiceConn, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
-		if err != nil {
-			fmt.Println("Error while joining channel: ", err)
-		}
-		player.VoiceConnection = voiceConn
-		player.startPlayer()
-	}()
-	return player
+func newMusicPlayer(voiceChannel *discordgo.VoiceState) *musicPlayer {
+	opusStream := newOpusStream()
+	return &musicPlayer{&discordgo.VoiceConnection{}, make(chan ytRequest, 24), opusStream, make(chan bool)}
 }
 
 //
 // Main player loop
 //
-func (player *musicPlayer) startPlayer() {
-	for {
-		nextSong, ok := <-player.queue
-		if !ok {
-			break
-		}
-		player.nowPlaying <- nextSong
-		player.playAudio(nextSong.playURL)
-		if len(player.queue) < 1 {
-			break
-		}
-	}
-	player.stop <- true
-	player.Disconnect()
-}
-
-func (player *musicPlayer) playAudio(url string) {
-
-	pcmAudio := make(chan []int16, 2)
-	opusAudio := make(chan []byte, 2)
-	go func() {
-		player.getAudio(url, pcmAudio)
-	}()
-	go func() {
-		player.encodeAudio(pcmAudio, opusAudio)
-	}()
-	player.sendAudio(opusAudio)
-}
-
-func (player *musicPlayer) encodeAudio(input <-chan []int16, output chan<- []byte) {
-	opusEncoder, err := gopus.NewEncoder(frameRate, channels, gopus.Audio)
-	if err != nil {
-		fmt.Println("NewEncoder Error: ", err)
-		return
-	}
-	for {
-		pcm, ok := <-input
-		if !ok {
-			break
-		}
-		opus, err := opusEncoder.Encode(pcm, frameSize, maxBytes)
-		if err != nil {
-			fmt.Println("Encoding Error: ", err)
-			break
-		}
-		output <- opus
-	}
-	close(output)
-}
-
-func (player *musicPlayer) sendAudio(opusAudio <-chan []byte) {
+func (player *musicPlayer) start() {
 	err := player.Speaking(true)
 	if err != nil {
 		fmt.Println("Couldn't set speaking: ", err)
+		return
 	}
 	for {
-		opus, ok := <-opusAudio
-		if !ok {
+		nextSong := <-player.queue
+		nextSong.nowPlaying()
+		player.play(nextSong.Formats.FindByItag(251).URL)
+		if len(player.queue) < 1 {
 			break
 		}
-		// TODO: needed?
-		// if !player.Ready || player.OpusSend == nil {
-		// 	break
-		// }
-		player.OpusSend <- opus
 	}
 	err = player.Speaking(false)
 	if err != nil {
 		fmt.Println("Couldn't stop speaking: ", err)
 	}
+	player.stop <- true
 }
 
-func (player *musicPlayer) getAudio(url string, pcmAudio chan<- []int16) {
-	ffmpeg := exec.Command("ffmpeg", "-i", url, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
-	ffmpegStdOut, err := ffmpeg.StdoutPipe()
-	if err != nil {
-		fmt.Println("StdoutPipe Error: ", err)
-		return
-	}
-	ffmpegBuffer := bufio.NewReaderSize(ffmpegStdOut, 16384)
-	err = ffmpeg.Start()
-	if err != nil {
-		fmt.Println("ExecStart Error: ", err)
-		return
-	}
+func (player *musicPlayer) play(url string) {
+
+	player.opusStream.stream(url)
 	for {
-		audiobuf := make([]int16, frameSize*channels)
-		err := binary.Read(ffmpegBuffer, binary.LittleEndian, &audiobuf)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			//fmt.Println("EOF")
+		if !player.Ready || player.OpusSend == nil {
 			break
-		} else {
-			if err != nil {
-				fmt.Println("error reading from ffmpeg stdout: ", err)
-				break
-			}
 		}
-		pcmAudio <- audiobuf
+		opus, ok := <-player.opusStream.opusAudio
+		if !ok {
+			break
+		}
+		player.OpusSend <- opus
 	}
-	ffmpeg.Process.Kill()
-	close(pcmAudio)
 }
+
+// func (player *musicPlayer) getAudioStream(url string, pcmAudio chan<- []int16) {
+// 	ffmpeg := exec.Command("ffmpeg", "-i", url, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
+// 	ffmpegStdOut, err := ffmpeg.StdoutPipe()
+// 	if err != nil {
+// 		fmt.Println("StdoutPipe Error: ", err)
+// 		return
+// 	}
+// 	ffmpegBuffer := bufio.NewReaderSize(ffmpegStdOut, 16384)
+// 	err = ffmpeg.Start()
+// 	if err != nil {
+// 		fmt.Println("ExecStart Error: ", err)
+// 		return
+// 	}
+// 	for {
+// 		audiobuf := make([]int16, frameSize*channels)
+// 		err := binary.Read(ffmpegBuffer, binary.LittleEndian, &audiobuf)
+// 		if err == io.EOF || err == io.ErrUnexpectedEOF {
+// 			//fmt.Println("EOF")
+// 			break
+// 		}
+// 		if err != nil {
+// 			fmt.Println("error reading from ffmpeg stdout: ", err)
+// 			break
+// 		}
+// 		pcmAudio <- audiobuf
+// 	}
+// 	ffmpeg.Process.Kill()
+// 	close(pcmAudio)
+// }
+
+// func (player *musicPlayer) encodeToOpus(pcmAudio <-chan []int16, opusAudio chan<- []byte) {
+// 	opusEncoder, err := gopus.NewEncoder(frameRate, channels, gopus.Audio)
+// 	if err != nil {
+// 		fmt.Println("NewEncoder Error: ", err)
+// 		return
+// 	}
+// 	for {
+// 		pcm, ok := <-pcmAudio
+// 		if !ok {
+// 			break
+// 		}
+// 		opus, err := opusEncoder.Encode(pcm, frameSize, maxBytes)
+// 		if err != nil {
+// 			fmt.Println("Encoding Error: ", err)
+// 			break
+// 		}
+// 		opusAudio <- opus
+// 	}
+// 	close(opusAudio)
+// }

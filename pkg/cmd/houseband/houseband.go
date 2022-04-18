@@ -68,7 +68,15 @@ func (bot *Bot) createCommands() {
 			},
 		},
 	}
+	var stop_command = &discordgo.ApplicationCommand{
+		Name:        "stop",
+		Description: "What are you doing? Don't do that... I COMMAND YOU TO STOP.",
+	}
 	_, err := bot.ApplicationCommandCreate(bot.State.User.ID, "485945698953723905", play_command)
+	if err != nil {
+		fmt.Println("Error while registering commands: ", err)
+	}
+	_, err = bot.ApplicationCommandCreate(bot.State.User.ID, "485945698953723905", stop_command)
 	if err != nil {
 		fmt.Println("Error while registering commands: ", err)
 	}
@@ -95,15 +103,36 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 			fmt.Println("Error while getting user channel: ", err)
 			return
 		}
-		bot.musicPlayers[interact.GuildID] = bot.newMusicPlayer(invokingMemberChannel)
+		player := newMusicPlayer(invokingMemberChannel)
+		bot.musicPlayers[interact.GuildID] = player
+		go func() {
+			var err error
+			player.VoiceConnection, err = bot.ChannelVoiceJoin(invokingMemberChannel.GuildID, invokingMemberChannel.ChannelID, false, false)
+			if err != nil {
+				fmt.Println("Error while joining channel: ", err)
+			}
+			player.start()
+		}()
+
+		go func() {
+			<-player.stop
+			player.Disconnect()
+			delete(bot.musicPlayers, player.GuildID)
+		}()
 	}
 	player := bot.musicPlayers[interact.GuildID]
 
 	//
-	// Create and queue songRequest from URL provided by user
+	// Create and queue ytRequest from URL provided by user
 	//
 	url := interact.ApplicationCommandData().Options[0].StringValue()
-	request := newSongRequest(url, interact.ChannelID)
+	nowPlaying := func(message string) {
+		_, err := bot.ChannelMessageSend(interact.ChannelID, message)
+		if err != nil {
+			fmt.Println("Error while sending channel message: ", err)
+		}
+	}
+	request := newYtRequest(url, nowPlaying)
 	player.queue <- request
 
 	//
@@ -116,16 +145,37 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 		fmt.Println("Error while updating interaction response: ", err)
 		return
 	}
-	go func() {
-		nowPlaying := <-player.nowPlaying
-		_, err := bot.ChannelMessageSend(nowPlaying.requestChannelID, "**Now Playing:** `"+nowPlaying.title+"`")
-		if err != nil {
-			fmt.Println("Error while sending channel message: ", err)
-		}
 
-	}()
-	go func() {
-		<-player.stop
-		delete(bot.musicPlayers, player.GuildID)
-	}()
+}
+
+func (bot *Bot) stop(interact *discordgo.InteractionCreate) {
+	//
+	// Send deferred interaction response
+	//
+	err := bot.InteractionRespond(interact.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+	if err != nil {
+		fmt.Println("Error while sending interaction response: ", err)
+		return
+	}
+
+	if bot.musicPlayers[interact.GuildID] == nil {
+		_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
+			Content: "I'm not playing any music right now!",
+		})
+		if err != nil {
+			fmt.Println("Error while updating interaction response: ", err)
+		}
+		return
+	}
+	player := bot.musicPlayers[interact.GuildID]
+	player.stop <- true
+	_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
+		Content: "Stopped playing ",
+	})
+	if err != nil {
+		fmt.Println("Error while updating interaction response: ", err)
+		return
+	}
 }
