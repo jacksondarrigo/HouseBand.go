@@ -21,6 +21,8 @@ func (bot *Bot) commandHandler(i *discordgo.InteractionCreate) {
 		bot.play(i)
 	case "stop":
 		bot.stop(i)
+	case "skip":
+		bot.skip(i)
 	}
 }
 
