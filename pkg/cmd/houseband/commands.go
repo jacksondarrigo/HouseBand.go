@@ -6,10 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func (bot *Bot) play(interact *discordgo.InteractionCreate) {
-	//
-	// Send deferred interaction response
-	//
+func (bot *Bot) deferResponse(interact *discordgo.InteractionCreate) {
 	err := bot.InteractionRespond(interact.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -17,6 +14,20 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 		fmt.Println("Error while sending interaction response: ", err)
 		return
 	}
+}
+
+func (bot *Bot) editResponse(interact *discordgo.InteractionCreate, message string) {
+	_, err := bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
+		Content: message,
+	})
+	if err != nil {
+		fmt.Println("Error while updating interaction response: ", err)
+		return
+	}
+}
+
+func (bot *Bot) play(interact *discordgo.InteractionCreate) {
+	bot.deferResponse(interact)
 
 	//
 	// Check for existing musicPlayer, or create one if one doesn't exist
@@ -51,83 +62,37 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 	request := newRequest(video, interact.ChannelID, bot.ChannelMessageSend)
 	player.queue <- request
 
-	//
-	// Updated deferred response
-	//
-	_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
-		Content: interact.Member.User.String() + " requested: [" + url + "](" + url + ")",
-	})
-	if err != nil {
-		fmt.Println("Error while updating interaction response: ", err)
-		return
-	}
 	_, err = bot.ChannelMessageSend(interact.ChannelID, "*Added to Queue:* `"+request.Title+"`")
 	if err != nil {
 		fmt.Println("Error sending channel message: ", err)
 	}
 
+	bot.editResponse(interact, interact.Member.User.String()+" requested: ["+url+"]("+url+")")
+
 }
 
 func (bot *Bot) stop(interact *discordgo.InteractionCreate) {
-	//
-	// Send deferred interaction response
-	//
-	err := bot.InteractionRespond(interact.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
-	if err != nil {
-		fmt.Println("Error while sending interaction response: ", err)
-		return
-	}
+	bot.deferResponse(interact)
 
 	if bot.musicPlayers[interact.GuildID] == nil {
-		_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
-			Content: "I'm not playing any music right now!",
-		})
-		if err != nil {
-			fmt.Println("Error while updating interaction response: ", err)
-		}
+		bot.editResponse(interact, "I'm not playing any music right now!")
 		return
 	}
 	player := bot.musicPlayers[interact.GuildID]
 	player.stop <- true
-	_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
-		Content: "Stopped playing song",
-	})
-	if err != nil {
-		fmt.Println("Error while updating interaction response: ", err)
-		return
-	}
+
+	bot.editResponse(interact, "Stopped playing song")
 }
 
 func (bot *Bot) skip(interact *discordgo.InteractionCreate) {
-	//
-	// Send deferred interaction response
-	//
-	err := bot.InteractionRespond(interact.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	})
-	if err != nil {
-		fmt.Println("Error while sending interaction response: ", err)
-		return
-	}
+	bot.deferResponse(interact)
 
 	if bot.musicPlayers[interact.GuildID] == nil {
-		_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
-			Content: "I'm not playing any music right now!",
-		})
-		if err != nil {
-			fmt.Println("Error while updating interaction response: ", err)
-		}
+		bot.editResponse(interact, "I'm not playing any music right now!")
 		return
 	}
 	player := bot.musicPlayers[interact.GuildID]
 	player.next <- true
-	_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
-		Content: "Skipped song",
-	})
-	if err != nil {
-		fmt.Println("Error while updating interaction response: ", err)
-		return
-	}
+
+	bot.editResponse(interact, "Skipped song")
 }
