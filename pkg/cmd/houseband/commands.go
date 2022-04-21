@@ -26,6 +26,19 @@ func (bot *Bot) editResponse(interact *discordgo.InteractionCreate, message stri
 	}
 }
 
+// func (bot *Bot) getURL() {
+// 	url := interact.ApplicationCommandData().Options[0].StringValue()
+
+// 	video, err := bot.youtube.GetVideo(url)
+// 	if err != nil {
+// 		fmt.Println("Error while getting video: ", err)
+// 	}
+// 	stream, err := bot.youtube.GetStreamURL(video, video.Formats.FindByItag(251))
+// 	if err != nil {
+// 		fmt.Println("Error while getting stream URL: ", err)
+// 	}
+// }
+
 func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 	bot.deferResponse(interact)
 
@@ -55,11 +68,16 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) {
 	// Create and queue request from URL provided by user
 	//
 	url := interact.ApplicationCommandData().Options[0].StringValue()
+
 	video, err := bot.youtube.GetVideo(url)
 	if err != nil {
 		fmt.Println("Error while getting video: ", err)
 	}
-	request := newRequest(video, interact.ChannelID, bot.ChannelMessageSend)
+	stream, err := bot.youtube.GetStreamURL(video, video.Formats.FindByItag(251))
+	if err != nil {
+		fmt.Println("Error while getting stream URL: ", err)
+	}
+	request := newRequest(video, stream, interact.ChannelID, bot.ChannelMessageSend)
 	player.queue <- request
 
 	_, err = bot.ChannelMessageSend(interact.ChannelID, "*Added to Queue:* `"+request.Title+"`")
