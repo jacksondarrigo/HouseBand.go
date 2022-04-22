@@ -31,7 +31,7 @@ func (player *musicPlayer) run() {
 	for {
 		nextSong := <-player.queue
 		nextSong.nowPlaying()
-		stream := newStream(nextSong.Formats.FindByItag(251).URL)
+		stream := newStream(nextSong.streamURL)
 		player.play(stream)
 		if player.isQueueEmpty() || !player.started {
 			break
