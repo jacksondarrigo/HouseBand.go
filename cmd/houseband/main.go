@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	houseband "github.com/jacksondarrigo/HouseBand.go/cmd/houseband/bot"
+	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/bot"
 )
 
 func main() {
@@ -15,6 +15,6 @@ func main() {
 		fmt.Println("No token provided. Please use the '-t' option to set your Discord API Token.")
 		return
 	}
-	bot := houseband.NewBot(*token)
+	bot := bot.NewBot(*token)
 	bot.Run()
 }
