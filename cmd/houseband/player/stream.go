@@ -1,4 +1,4 @@
-package houseband
+package player
 
 import (
 	"bufio"
@@ -34,7 +34,7 @@ func newStream(url string) *stream {
 }
 
 func (stream *stream) get() {
-	ffmpeg := exec.Command("ffmpeg", "-i", stream.url, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
+	ffmpeg := exec.Command("ffmpeg", "-reconnect", "1", "-nostdin", "-i", stream.url, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 	ffmpegStdOut, err := ffmpeg.StdoutPipe()
 	if err != nil {
 		fmt.Println("StdoutPipe Error: ", err)
