@@ -15,6 +15,6 @@ func main() {
 		fmt.Println("No token provided. Please use the '-t' option to set your Discord API Token.")
 		return
 	}
-	bot := bot.NewBot(*token)
-	bot.Run()
+	houseband := bot.New(*token)
+	houseband.Run()
 }

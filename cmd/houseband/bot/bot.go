@@ -19,7 +19,7 @@ type Bot struct {
 	webServer    *http.Server
 }
 
-func NewBot(token string) *Bot {
+func New(token string) *Bot {
 	session, err := discordgo.New("Bot " + token)
 	if err != nil {
 		fmt.Println("Error creating Discord session: ", err)
