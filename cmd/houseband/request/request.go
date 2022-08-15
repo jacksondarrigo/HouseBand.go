@@ -1,4 +1,4 @@
-package player
+package request
 
 import (
 	"fmt"
@@ -6,15 +6,15 @@ import (
 	"github.com/kkdai/youtube/v2"
 )
 
-type request struct {
+type Request struct {
 	*youtube.Video
-	streamURL  string
-	nowPlaying func()
+	StreamURL  string
+	NowPlaying func()
 }
 
 var youtubeClient *youtube.Client = &youtube.Client{}
 
-func NewRequest(url string, callback func(title string)) (req *request, err error) {
+func New(url string, callback func(title string)) (req *Request, err error) {
 	video, err := youtubeClient.GetVideo(url)
 	if err != nil {
 		fmt.Println("Error while getting video: ", err)
@@ -25,5 +25,5 @@ func NewRequest(url string, callback func(title string)) (req *request, err erro
 		fmt.Println("Error while getting stream URL: ", err)
 		return nil, err
 	}
-	return &request{video, stream, func() { callback(video.Title) }}, nil
+	return &Request{video, stream, func() { callback(video.Title) }}, nil
 }

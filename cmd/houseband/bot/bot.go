@@ -11,6 +11,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/player"
+	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/request"
 )
 
 type Bot struct {
@@ -154,13 +155,13 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 	musicPlayer := bot.musicPlayers[interact.GuildID]
 
 	url := interact.ApplicationCommandData().Options[0].StringValue()
-	request, err := player.NewRequest(url, func(title string) { bot.ChannelMessageSend(interact.ChannelID, "**Now Playing:** `"+title+"`") })
+	req, err := request.New(url, func(title string) { bot.ChannelMessageSend(interact.ChannelID, "**Now Playing:** `"+title+"`") })
 	if err != nil {
 		message := "Could not add request to queue: There was an error retrieving the [video](" + url + ")."
 		return message
 	}
-	musicPlayer.AddToQueue(request)
-	message := "*Added to Queue:* [`" + request.Title + "`](" + url + ")"
+	musicPlayer.AddToQueue(req)
+	message := "*Added to Queue:* [`" + req.Title + "`](" + url + ")"
 	return message
 }
 
