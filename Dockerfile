@@ -1,14 +1,16 @@
-FROM golang:1.17
+FROM golang:1.19 AS builder
 
-RUN apt update
-RUN apt install -y ffmpeg
-
-RUN go get golang.org/x/net/html
-RUN go get github.com/bwmarrin/discordgo@master
-
+RUN mkdir /go/src/houseband
 WORKDIR /go/src/houseband
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
 COPY . .
+RUN GOOS=linux GOARCH=amd64 go build -o /go/bin/houseband ./cmd/houseband
 
-RUN go install ./cmd/houseband/
-
-ENTRYPOINT ["houseband"]
+FROM ubuntu:focal
+RUN apt-get update && apt-get install -y ffmpeg ca-certificates
+COPY --from=builder /go/bin/houseband /go/bin/houseband
+ENTRYPOINT ["/go/bin/houseband"]
