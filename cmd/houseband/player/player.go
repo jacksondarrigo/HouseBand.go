@@ -5,47 +5,51 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/request"
+	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/stream"
 )
 
 type MusicPlayer struct {
 	*discordgo.VoiceConnection
 	Queue       []*request.Request
 	CurrentSong *request.Request
+	Started     bool
 	Stop        chan bool
 	Next        chan bool
-	Started     bool
 }
 
-func NewMusicPlayer() *MusicPlayer {
-	return &MusicPlayer{&discordgo.VoiceConnection{}, make([]*request.Request, 0, 24), nil, make(chan bool), make(chan bool), false}
+func New() *MusicPlayer {
+	return &MusicPlayer{&discordgo.VoiceConnection{}, make([]*request.Request, 0, 24), nil, false, make(chan bool), make(chan bool)}
 }
 
 // Main player loop
-func (player *MusicPlayer) Run() {
-	player.Started = true
+func (player *MusicPlayer) Start() {
 	err := player.Speaking(true)
 	if err != nil {
 		fmt.Println("Couldn't set speaking: ", err)
 		return
 	}
-	for player.Started && !player.QueueEmpty() {
-		player.CurrentSong = player.NextSong()
+	for player.Started && !player.isEmpty() {
+		player.CurrentSong = player.nextSong()
 		player.CurrentSong.NowPlaying()
-		player.Play(player.CurrentSong.StreamURL)
+		streamUrl, err := player.CurrentSong.GetStream()
+		if err != nil {
+			player.CurrentSong.Cancel()
+			continue
+		}
+		player.play(streamUrl)
 	}
 	err = player.Speaking(false)
 	if err != nil {
 		fmt.Println("Couldn't stop speaking: ", err)
 	}
-	player.Disconnect()
 }
 
-func (player *MusicPlayer) Play(url string) {
-	stream := newStream(url)
-	go stream.get()
+func (player *MusicPlayer) play(url string) {
+	song := stream.New(url)
+	go song.Get()
 	for {
 		select {
-		case opusBytes, ok := <-stream.audio:
+		case opusBytes, ok := <-song.Audio:
 			if !ok {
 				return
 			}
@@ -63,12 +67,12 @@ func (player *MusicPlayer) AddToQueue(request *request.Request) {
 	player.Queue = append(player.Queue, request)
 }
 
-func (player *MusicPlayer) NextSong() *request.Request {
+func (player *MusicPlayer) nextSong() *request.Request {
 	request := player.Queue[0]
 	player.Queue = player.Queue[1:]
 	return request
 }
 
-func (player *MusicPlayer) QueueEmpty() bool {
+func (player *MusicPlayer) isEmpty() bool {
 	return len(player.Queue) < 1
 }

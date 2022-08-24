@@ -10,7 +10,8 @@ RUN go mod download
 COPY . .
 RUN GOOS=linux GOARCH=amd64 go build -o /go/bin/houseband ./cmd/houseband
 
-FROM ubuntu:focal
-RUN apt-get update && apt-get install -y ffmpeg ca-certificates
+FROM python:3.10-slim
+RUN apt-get update && apt-get install -y ffmpeg
+RUN pip install --upgrade youtube_dl
 COPY --from=builder /go/bin/houseband /go/bin/houseband
 ENTRYPOINT ["/go/bin/houseband"]

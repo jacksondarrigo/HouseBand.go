@@ -1,4 +1,4 @@
-package player
+package stream
 
 import (
 	"bufio"
@@ -18,22 +18,22 @@ const (
 	maxBytes  int = (frameSize * 2) * 2 // max size of opus data
 )
 
-type stream struct {
+type Stream struct {
 	*gopus.Encoder
 	url   string
-	audio chan []byte
+	Audio chan []byte
 }
 
-func newStream(url string) *stream {
+func New(url string) *Stream {
 	opusEncoder, err := gopus.NewEncoder(frameRate, channels, gopus.Audio)
 	if err != nil {
 		fmt.Println("NewEncoder Error: ", err)
 		return nil
 	}
-	return &stream{opusEncoder, url, make(chan []byte, 2)}
+	return &Stream{opusEncoder, url, make(chan []byte, 2)}
 }
 
-func (stream *stream) get() {
+func (stream *Stream) Get() {
 	ffmpeg := exec.Command("ffmpeg", "-reconnect", "1", "-nostdin", "-i", stream.url, "-f", "s16le", "-ar", strconv.Itoa(frameRate), "-ac", strconv.Itoa(channels), "pipe:1")
 	ffmpegStdOut, err := ffmpeg.StdoutPipe()
 	if err != nil {
@@ -50,7 +50,7 @@ func (stream *stream) get() {
 		pcmBytes := make([]int16, frameSize*channels)
 		err := binary.Read(ffmpegBuffer, binary.LittleEndian, &pcmBytes)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			fmt.Println("EOF")
+			// fmt.Println("EOF")
 			break
 		}
 		if err != nil {
@@ -62,8 +62,8 @@ func (stream *stream) get() {
 			fmt.Println("Encoding Error: ", err)
 			break
 		}
-		stream.audio <- opusBytes
+		stream.Audio <- opusBytes
 	}
 	ffmpeg.Process.Kill()
-	close(stream.audio)
+	close(stream.Audio)
 }

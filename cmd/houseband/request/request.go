@@ -1,29 +1,37 @@
 package request
 
 import (
-	"fmt"
-
-	"github.com/kkdai/youtube/v2"
+	"os/exec"
+	"strings"
 )
 
 type Request struct {
-	*youtube.Video
-	StreamURL  string
-	NowPlaying func()
+	ReqURL string
+	Title  string
+	// StreamURL string
+	nowPlaying chan bool
 }
 
-var youtubeClient *youtube.Client = &youtube.Client{}
+func New(url string, callback chan bool) (req *Request, err error) {
+	title, err := exec.Command("youtube-dl", "-e", url).Output()
+	if err != nil {
+		return nil, err
+	}
+	return &Request{url, strings.TrimSuffix(string(title), "\n"), callback}, nil
+}
 
-func New(url string, callback func(title string)) (req *Request, err error) {
-	video, err := youtubeClient.GetVideo(url)
+func (r Request) GetStream() (string, error) {
+	streamUrl, err := exec.Command("youtube-dl", "-f", "bestaudio", "-g", r.ReqURL).Output()
 	if err != nil {
-		fmt.Println("Error while getting video: ", err)
-		return nil, err
+		return "", err
 	}
-	stream, err := youtubeClient.GetStreamURL(video, video.Formats.FindByItag(251))
-	if err != nil {
-		fmt.Println("Error while getting stream URL: ", err)
-		return nil, err
-	}
-	return &Request{video, stream, func() { callback(video.Title) }}, nil
+	return strings.TrimSuffix(string(streamUrl), "\n"), nil
+}
+
+func (r Request) NowPlaying() {
+	r.nowPlaying <- true
+}
+
+func (r Request) Cancel() {
+	r.nowPlaying <- false
 }
