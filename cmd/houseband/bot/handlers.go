@@ -130,6 +130,7 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 	musicPlayer := bot.musicPlayers[interact.GuildID]
 	musicPlayer.AddToQueue(req)
 	bot.mu.Unlock()
+	bot.ChannelMessageSend(interact.ChannelID, "*Added to Queue:* `"+req.Title+"`")
 
 	go func() {
 		nowPlaying := <-nowPlaying
@@ -144,7 +145,8 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 		go bot.startPlayer(interact, invokingMemberChannel)
 	}
 	bot.mu.Unlock()
-	message := "*Added to Queue:* [`" + req.Title + "`](" + req.ReqURL + ")"
+	// message := "*Added to Queue:* [`" + req.Title + "`](" + req.ReqURL + ")"
+	message := interact.Member.User.Username + " requested: [`" + req.Title + "`](" + req.ReqURL + ")"
 	return message
 }
 
