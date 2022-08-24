@@ -16,23 +16,23 @@ func (bot *Bot) onReady(session *discordgo.Session, event *discordgo.Ready) {
 
 func (bot *Bot) createCommands() {
 	commands := []*discordgo.ApplicationCommand{
-		{ //  Oh.. oh, song? You want to sing a song? You were excited about singing a song? GOOOOOOOOOOD!
+		{
 			Name:        "play",
-			Description: "Play a song from YouTube",
+			Description: "Play a song",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "url",
-					Description: "URL to song",
+					Name:        "query",
+					Description: "Youtube search query, Youtube video ID, or URL to song",
 					Required:    true,
 				},
 			},
 		},
-		{ //  What are you doing? Don't do that... I COMMAND YOU TO STOP.
+		{
 			Name:        "stop",
 			Description: "Stop playing music and disconnect",
 		},
-		{ //  ... I didn't tell you what to- You're skipping a line, dude.
+		{
 			Name:        "skip",
 			Description: "Skip the current song in queue",
 		},
@@ -108,7 +108,7 @@ func (bot *Bot) startPlayer(interact *discordgo.InteractionCreate, channel *disc
 
 func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 
-	var url string = interact.ApplicationCommandData().Options[0].StringValue()
+	var query string = interact.ApplicationCommandData().Options[0].StringValue()
 	var nowPlaying chan bool = make(chan bool)
 
 	invokingMemberChannel, err := bot.State.VoiceState(interact.GuildID, interact.Member.User.ID)
@@ -117,7 +117,7 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 		return message
 	}
 
-	req, err := request.New(url, nowPlaying)
+	req, err := request.New(query, nowPlaying)
 	if err != nil {
 		message := "Could not add request to queue: " + err.Error()
 		return message
@@ -144,7 +144,7 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 		go bot.startPlayer(interact, invokingMemberChannel)
 	}
 	bot.mu.Unlock()
-	message := "*Added to Queue:* [`" + req.Title + "`](" + url + ")"
+	message := "*Added to Queue:* [`" + req.Title + "`](" + req.ReqURL + ")"
 	return message
 }
 
