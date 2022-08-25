@@ -87,7 +87,6 @@ func (bot *Bot) commandHandler(interact *discordgo.InteractionCreate) {
 	})
 	if err != nil {
 		fmt.Println("Error while updating interaction response: ", err)
-		return
 	}
 }
 
