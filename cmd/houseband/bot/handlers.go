@@ -128,6 +128,7 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate, messageChannel chan<
 	messageChannel <- message
 
 	bot.mu.Lock()
+	defer bot.mu.Unlock()
 	if bot.musicPlayers[interact.GuildID] == nil {
 		bot.musicPlayers[interact.GuildID] = player.New()
 	}
@@ -145,7 +146,6 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate, messageChannel chan<
 	if !musicPlayer.Started {
 		go bot.startPlayer(interact, invokingMemberChannel)
 	}
-	bot.mu.Unlock()
 	// message := "*Added to Queue:* [`" + req.Title + "`](" + req.ReqURL + ")"
 
 }
