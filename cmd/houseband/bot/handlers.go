@@ -71,17 +71,18 @@ func (bot *Bot) commandHandler(interact *discordgo.InteractionCreate) {
 		fmt.Println("Error while sending interaction response: ", err)
 		return
 	}
-	var message string
+	var messageChannel chan string = make(chan string)
 	switch interact.ApplicationCommandData().Name {
 	case "play":
-		message = bot.play(interact)
+		bot.play(interact, messageChannel)
 	case "stop":
-		message = bot.stop(interact)
+		bot.stop(interact, messageChannel)
 	case "skip":
-		message = bot.skip(interact)
+		bot.skip(interact, messageChannel)
 	case "queue":
-		message = bot.queue(interact)
+		bot.queue(interact, messageChannel)
 	}
+	message := <-messageChannel
 	_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
 		Content: message,
 	})
@@ -105,7 +106,7 @@ func (bot *Bot) startPlayer(interact *discordgo.InteractionCreate, channel *disc
 	delete(bot.musicPlayers, interact.GuildID)
 }
 
-func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
+func (bot *Bot) play(interact *discordgo.InteractionCreate, messageChannel chan string) {
 
 	var query string = interact.ApplicationCommandData().Options[0].StringValue()
 	var nowPlaying chan bool = make(chan bool)
@@ -113,14 +114,18 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 	invokingMemberChannel, err := bot.State.VoiceState(interact.GuildID, interact.Member.User.ID)
 	if err != nil {
 		message := "You are not currently joined to a voice channel! Please join a voice channel to play music."
-		return message
+		messageChannel <- message
+		return
 	}
 
 	req, err := request.New(query, nowPlaying)
 	if err != nil {
 		message := "Could not add request to queue: " + err.Error()
-		return message
+		messageChannel <- message
+		return
 	}
+	message := interact.Member.User.Username + " requested: [`" + req.Title + "`](" + req.ReqURL + ")"
+	messageChannel <- message
 
 	bot.mu.Lock()
 	if bot.musicPlayers[interact.GuildID] == nil {
@@ -128,9 +133,6 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 	}
 	musicPlayer := bot.musicPlayers[interact.GuildID]
 	musicPlayer.AddToQueue(req)
-	bot.mu.Unlock()
-	bot.ChannelMessageSend(interact.ChannelID, "*Added to Queue:* `"+req.Title+"`")
-
 	go func() {
 		nowPlaying := <-nowPlaying
 		if nowPlaying {
@@ -139,47 +141,49 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate) string {
 			bot.ChannelMessageSend(interact.ChannelID, "**Error Playing:** `"+req.Title+"`; *skipping song*")
 		}
 	}()
-	bot.mu.Lock()
+	bot.ChannelMessageSend(interact.ChannelID, "*Added to Queue:* `"+req.Title+"`")
 	if !musicPlayer.Started {
 		go bot.startPlayer(interact, invokingMemberChannel)
 	}
 	bot.mu.Unlock()
 	// message := "*Added to Queue:* [`" + req.Title + "`](" + req.ReqURL + ")"
-	message := interact.Member.User.Username + " requested: [`" + req.Title + "`](" + req.ReqURL + ")"
-	return message
+
 }
 
-func (bot *Bot) stop(interact *discordgo.InteractionCreate) string {
+func (bot *Bot) stop(interact *discordgo.InteractionCreate, messageChannel chan string) {
 
 	if bot.musicPlayers[interact.GuildID] == nil {
 		message := "I'm not playing any music right now!"
-		return message
+		messageChannel <- message
+		return
 	}
 	musicPlayer := bot.musicPlayers[interact.GuildID]
 
 	musicPlayer.Stop <- true
 	message := "Music stopped"
-	return message
+	messageChannel <- message
 }
 
-func (bot *Bot) skip(interact *discordgo.InteractionCreate) string {
+func (bot *Bot) skip(interact *discordgo.InteractionCreate, messageChannel chan string) {
 
 	if bot.musicPlayers[interact.GuildID] == nil {
 		message := "I'm not playing any music right now!"
-		return message
+		messageChannel <- message
+		return
 	}
 	musicPlayer := bot.musicPlayers[interact.GuildID]
 
 	musicPlayer.Next <- true
 	message := "Skipped song"
-	return message
+	messageChannel <- message
 }
 
-func (bot *Bot) queue(interact *discordgo.InteractionCreate) string {
+func (bot *Bot) queue(interact *discordgo.InteractionCreate, messageChannel chan string) {
 
 	if bot.musicPlayers[interact.GuildID] == nil {
 		message := "I'm not playing any music right now!"
-		return message
+		messageChannel <- message
+		return
 	}
 	musicPlayer := bot.musicPlayers[interact.GuildID]
 
@@ -199,7 +203,7 @@ func (bot *Bot) queue(interact *discordgo.InteractionCreate) string {
 	}()
 
 	message := "__Song Queue__"
-	return message
+	messageChannel <- message
 }
 
 func (bot *Bot) deleteCommands() {
