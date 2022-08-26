@@ -1,6 +1,6 @@
 module github.com/jacksondarrigo/HouseBand.go
 
-go 1.17
+go 1.19
 
 require (
 	github.com/bwmarrin/discordgo v0.23.3-0.20211228023845-29269347e820
