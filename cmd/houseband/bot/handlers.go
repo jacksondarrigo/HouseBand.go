@@ -14,6 +14,11 @@ func (bot *Bot) onReady(session *discordgo.Session, event *discordgo.Ready) {
 	bot.createCommands()
 }
 
+func (bot *Bot) onReadyReset(session *discordgo.Session, event *discordgo.Ready) {
+	bot.deleteCommands()
+	bot.createCommands()
+}
+
 func (bot *Bot) createCommands() {
 	commands := []*discordgo.ApplicationCommand{
 		{

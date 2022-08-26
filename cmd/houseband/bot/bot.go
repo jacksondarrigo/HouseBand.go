@@ -29,8 +29,12 @@ func New(token string) *Bot {
 	return &Bot{session, sync.Mutex{}, make(map[string]*player.MusicPlayer), nil}
 }
 
-func (bot *Bot) Run() {
-	bot.AddHandler(bot.onReady)
+func (bot *Bot) Run(resetCommands bool) {
+	if resetCommands {
+		bot.AddHandler(bot.onReadyReset)
+	} else {
+		bot.AddHandler(bot.onReady)
+	}
 	bot.AddHandler(bot.interactionHandler)
 	bot.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
 	err := bot.Open()
