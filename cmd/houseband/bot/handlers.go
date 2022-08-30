@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/player"
@@ -76,6 +77,8 @@ func (bot *Bot) commandHandler(interact *discordgo.InteractionCreate) {
 		fmt.Println("Error while sending interaction response: ", err)
 		return
 	}
+	now := time.Now()
+	fmt.Println(now, interact.ApplicationCommandData().Name, "command used by", interact.Member.User.Username)
 	messageChannel := make(chan string)
 	switch interact.ApplicationCommandData().Name {
 	case "play":
