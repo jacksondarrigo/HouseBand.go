@@ -77,8 +77,10 @@ func (bot *Bot) commandHandler(interact *discordgo.InteractionCreate) {
 		fmt.Println("Error while sending interaction response: ", err)
 		return
 	}
-	now := time.Now()
-	fmt.Println(now, interact.ApplicationCommandData().Name, "command used by", interact.Member.User.Username)
+	if bot.LogLevel > 1 {
+		now := time.Now()
+		fmt.Println(now, interact.ApplicationCommandData().Name, "command used by", interact.Member.User.Username)
+	}
 	messageChannel := make(chan string)
 	switch interact.ApplicationCommandData().Name {
 	case "play":

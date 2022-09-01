@@ -25,7 +25,6 @@ func New(token string) *Bot {
 		fmt.Println("Error creating Discord session: ", err)
 		return nil
 	}
-	session.LogLevel = discordgo.LogDebug
 	return &Bot{session, sync.Mutex{}, make(map[string]*player.MusicPlayer), nil}
 }
 
