@@ -93,8 +93,8 @@ func (bot *Bot) commandHandler(interact *discordgo.InteractionCreate) {
 		go bot.queue(interact, messageChannel)
 	}
 	message := <-messageChannel
-	_, err = bot.InteractionResponseEdit(bot.State.User.ID, interact.Interaction, &discordgo.WebhookEdit{
-		Content: message,
+	_, err = bot.InteractionResponseEdit(interact.Interaction, &discordgo.WebhookEdit{
+		Content: &message,
 	})
 	if err != nil {
 		fmt.Println("Error while updating interaction response: ", err)
