@@ -35,7 +35,7 @@ func (bot *Bot) commandHandler(interaction *discordgo.InteractionCreate) {
 	if bot.LogLevel > 1 {
 		var builder strings.Builder
 		builder.WriteString("[HB] " + interaction.Member.User.Username + " used '" + interaction.ApplicationCommandData().Name + "' command")
-		if interaction.ApplicationCommandData().Options[0] != nil {
+		if len(interaction.ApplicationCommandData().Options) > 0 {
 			builder.WriteString(" with query '" + interaction.ApplicationCommandData().Options[0].StringValue() + "'")
 		}
 		log.Println(builder.String())
