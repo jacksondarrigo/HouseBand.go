@@ -50,11 +50,10 @@ func (stream *Stream) Get() {
 		pcmBytes := make([]int16, frameSize*channels)
 		err := binary.Read(ffmpegBuffer, binary.LittleEndian, &pcmBytes)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			// fmt.Println("EOF")
 			break
 		}
 		if err != nil {
-			fmt.Println("error reading from ffmpeg stdout: ", err)
+			fmt.Println("Error reading from ffmpeg stdout: ", err)
 			break
 		}
 		opusBytes, err := stream.Encode(pcmBytes, frameSize, maxBytes)

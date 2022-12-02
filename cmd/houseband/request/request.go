@@ -2,18 +2,13 @@ package request
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 )
-
-type Request struct {
-	ReqURL string
-	Title  string
-	// StreamURL string
-	nowPlaying chan bool
-}
 
 func isValidURL(reqUrl string) bool {
 	// Check it's an Absolute URL or absolute path
@@ -26,19 +21,28 @@ func isValidURL(reqUrl string) bool {
 	return err == nil
 }
 
-func New(query string, callback chan bool) (*Request, error) {
+type Request struct {
+	ReqURL             string
+	Title              string
+	InteractionChannel string
+	// StreamURL string
+}
+
+func New(query, channelId string) (*Request, error) {
 	var title string
 	var reqUrl string
 	if isValidURL(query) {
-		output, err := exec.Command("youtube-dl", "-e", query).Output()
+		output, err := exec.Command("youtube-dl", "-e", query).CombinedOutput()
 		if err != nil {
+			err = checkAgeVerification(err, string(output))
 			return nil, err
 		}
 		title = string(output)
 		reqUrl = query
 	} else {
-		output, err := exec.Command("youtube-dl", "-j", "ytsearch:"+query).Output()
+		output, err := exec.Command("youtube-dl", "-j", "ytsearch:"+query).CombinedOutput()
 		if err != nil {
+			err = checkAgeVerification(err, string(output))
 			return nil, err
 		}
 		var info map[string]interface{}
@@ -49,7 +53,17 @@ func New(query string, callback chan bool) (*Request, error) {
 		title = info["title"].(string)
 		reqUrl = info["webpage_url"].(string)
 	}
-	return &Request{reqUrl, strings.TrimSuffix(string(title), "\n"), callback}, nil
+	return &Request{reqUrl, strings.TrimSuffix(string(title), "\n"), channelId}, nil
+}
+
+func checkAgeVerification(err error, output string) error {
+	match, regexerr := regexp.MatchString("ERROR: Sign in to confirm your age", output)
+	if match && regexerr == nil {
+		err = errors.New("this video requires age verification")
+	} else {
+		err = errors.New("there was an error retrieving the video: " + err.Error())
+	}
+	return err
 }
 
 func (r Request) GetStream() (string, error) {
@@ -58,12 +72,4 @@ func (r Request) GetStream() (string, error) {
 		return "", err
 	}
 	return strings.TrimSuffix(string(streamUrl), "\n"), nil
-}
-
-func (r Request) NowPlaying() {
-	r.nowPlaying <- true
-}
-
-func (r Request) Cancel() {
-	r.nowPlaying <- false
 }

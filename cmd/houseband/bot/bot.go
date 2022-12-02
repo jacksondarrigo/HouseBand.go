@@ -2,10 +2,8 @@ package bot
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -14,37 +12,51 @@ import (
 
 type Bot struct {
 	*discordgo.Session
-	mu           sync.Mutex
 	musicPlayers map[string]*player.MusicPlayer
-	webServer    *http.Server
 }
 
 func New(token string) *Bot {
 	session, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("Error creating Discord session: ", err)
+		fmt.Println("Error: Cannot create Discord session: ", err)
 		return nil
 	}
-	return &Bot{session, sync.Mutex{}, make(map[string]*player.MusicPlayer), nil}
+	return &Bot{session, make(map[string]*player.MusicPlayer)}
 }
 
-func (bot *Bot) Run(resetCommands bool) {
-	if resetCommands {
-		bot.AddHandler(bot.onReadyReset)
-	} else {
-		bot.AddHandler(bot.onReady)
-	}
+func (bot *Bot) Connect() {
 	bot.AddHandler(bot.interactionHandler)
 	bot.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
 	err := bot.Open()
 	if err != nil {
-		fmt.Println("Error opening Discord session: ", err)
+		fmt.Println("Error: Cannot open Discord session: ", err)
 		return
 	}
-	defer bot.Close()
 
+}
+
+func (bot *Bot) Wait() {
+	defer bot.Close()
 	fmt.Println("HouseBandTest is now running.  Press CTRL-C to exit.")
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-signals
+}
+
+func (bot *Bot) RegisterCommands(commands []*discordgo.ApplicationCommand) {
+	for _, command := range commands {
+		_, err := bot.ApplicationCommandCreate(bot.State.User.ID, "", command)
+		if err != nil {
+			fmt.Println("Error: Cannot create commands: ", err)
+		}
+	}
+}
+
+func (bot *Bot) DeleteCommands(commands []*discordgo.ApplicationCommand) {
+	for _, command := range commands {
+		err := bot.ApplicationCommandDelete(bot.State.User.ID, "", command.ID)
+		if err != nil {
+			fmt.Println("Error: Cannot delete commands: ", err)
+		}
+	}
 }
