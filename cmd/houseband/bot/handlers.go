@@ -74,7 +74,7 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate, interactionResponse 
 	var query string = interact.ApplicationCommandData().Options[0].StringValue()
 	req, err := request.New(query, interact.ChannelID)
 	if err != nil {
-		response := "Error: Could not complete request for '" + query + "': " + err.Error()
+		response := "Error: Could not complete request for `" + query + "`: " + err.Error()
 		interactionResponse <- response
 		return
 	}
