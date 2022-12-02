@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/bwmarrin/discordgo"
@@ -31,7 +31,7 @@ func main() {
 	deleteCommands := *deleteFlag
 
 	if token == "" {
-		fmt.Println("Error: No token provided. Please set DISCORD_TOKEN environment variable, or use '-t' option to set your Discord API token.")
+		log.Println("Error: No token provided. Please set DISCORD_TOKEN environment variable, or use '-t' option to set your Discord API token.")
 		return
 	}
 
@@ -47,7 +47,7 @@ func main() {
 	case "DEBUG":
 		houseband.LogLevel = 3
 	default:
-		fmt.Println("Error: Unknown log level. Please set log level to one of ERROR, WARN, INFO, or DEBUG.")
+		log.Println("Error: Unknown log level. Please set log level to one of ERROR, WARN, INFO, or DEBUG.")
 		return
 	}
 	var commands []*discordgo.ApplicationCommand
@@ -118,7 +118,7 @@ func main() {
 	if deleteCommands {
 		commands, err := houseband.ApplicationCommands(houseband.State.User.ID, "")
 		if err != nil {
-			fmt.Println("Error retrieving application commands:", err.Error())
+			log.Println("Error: cannot retrieve application commands:", err.Error())
 		} else {
 			houseband.DeleteCommands(commands)
 		}

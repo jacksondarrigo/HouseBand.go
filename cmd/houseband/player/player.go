@@ -1,7 +1,7 @@
 package player
 
 import (
-	"fmt"
+	"log"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
@@ -44,7 +44,7 @@ func (player *MusicPlayer) AddToQueue(request *request.Request) {
 func (player *MusicPlayer) Run() {
 	err := player.VoiceConnection.Speaking(true)
 	if err != nil {
-		fmt.Println("Couldn't set speaking: ", err)
+		log.Println("Error: Couldn't set speaking: ", err)
 		return
 	}
 	for player.Started && !player.isEmpty() {
@@ -59,7 +59,7 @@ func (player *MusicPlayer) Run() {
 	}
 	err = player.Speaking(false)
 	if err != nil {
-		fmt.Println("Couldn't stop speaking: ", err)
+		log.Println("Error: Couldn't stop speaking: ", err)
 	}
 }
 

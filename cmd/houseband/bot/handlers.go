@@ -1,10 +1,9 @@
 package bot
 
 import (
-	"fmt"
+	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jacksondarrigo/HouseBand.go/cmd/houseband/player"
@@ -30,16 +29,16 @@ func (bot *Bot) commandHandler(interaction *discordgo.InteractionCreate) {
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 	if err != nil {
-		fmt.Println("Error: Cannot send interaction response: ", err)
+		log.Println("Error: Cannot send interaction response: ", err)
 		return
 	}
 	if bot.LogLevel > 1 {
 		var builder strings.Builder
-		builder.WriteString(time.Now().String() + " [HB] " + interaction.Member.User.Username + " used " + interaction.ApplicationCommandData().Name + " command")
+		builder.WriteString("[HB] " + interaction.Member.User.Username + " used '" + interaction.ApplicationCommandData().Name + "' command")
 		if interaction.ApplicationCommandData().Options[0] != nil {
-			builder.WriteString(" with query " + interaction.ApplicationCommandData().Options[0].StringValue())
+			builder.WriteString(" with query '" + interaction.ApplicationCommandData().Options[0].StringValue() + "'")
 		}
-		fmt.Println(builder.String())
+		log.Println(builder.String())
 	}
 	interactionResponse := make(chan string)
 	switch interaction.ApplicationCommandData().Name {
@@ -57,7 +56,7 @@ func (bot *Bot) commandHandler(interaction *discordgo.InteractionCreate) {
 		Content: &response,
 	})
 	if err != nil {
-		fmt.Println("Error: Cannot update interaction response: ", err)
+		log.Println("Error: Cannot update interaction response: ", err)
 	}
 }
 
@@ -124,7 +123,7 @@ func (bot *Bot) receiveMessages(musicPlayer *player.MusicPlayer) {
 			}
 			_, err := bot.ChannelMessageSend(message.ChannelId, message.Content)
 			if err != nil {
-				fmt.Println("Error: Cannot send message to channel: ", err)
+				log.Println("Error: Cannot send message to channel: ", err)
 			}
 		}
 	}

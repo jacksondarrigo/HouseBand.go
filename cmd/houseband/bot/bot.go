@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,7 +19,7 @@ type Bot struct {
 func New(token string) *Bot {
 	session, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("Error: Cannot create Discord session: ", err)
+		log.Println("Error: Cannot create Discord session: ", err)
 		return nil
 	}
 	return &Bot{session, make(map[string]*player.MusicPlayer)}
@@ -29,7 +30,7 @@ func (bot *Bot) Connect() {
 	bot.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
 	err := bot.Open()
 	if err != nil {
-		fmt.Println("Error: Cannot open Discord session: ", err)
+		log.Println("Error: Cannot open Discord session: ", err)
 		return
 	}
 
@@ -47,7 +48,7 @@ func (bot *Bot) RegisterCommands(commands []*discordgo.ApplicationCommand) {
 	for _, command := range commands {
 		_, err := bot.ApplicationCommandCreate(bot.State.User.ID, "", command)
 		if err != nil {
-			fmt.Println("Error: Cannot create commands: ", err)
+			log.Println("Error: Cannot create commands: ", err)
 		}
 	}
 }
@@ -56,7 +57,7 @@ func (bot *Bot) DeleteCommands(commands []*discordgo.ApplicationCommand) {
 	for _, command := range commands {
 		err := bot.ApplicationCommandDelete(bot.State.User.ID, "", command.ID)
 		if err != nil {
-			fmt.Println("Error: Cannot delete commands: ", err)
+			log.Println("Error: Cannot delete commands: ", err)
 		}
 	}
 }
