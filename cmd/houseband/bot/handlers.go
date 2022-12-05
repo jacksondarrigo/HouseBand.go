@@ -148,8 +148,8 @@ func (bot *Bot) skip(interact *discordgo.InteractionCreate, interactionResponse 
 	var message string
 
 	if musicPlayer, ok := bot.musicPlayers[interact.GuildID]; ok {
+		message = "Skipped `" + musicPlayer.CurrentSong.Title + "`"
 		musicPlayer.Next <- true
-		message = "Skipped song"
 	} else {
 		message = "I'm not playing any music right now!"
 	}
