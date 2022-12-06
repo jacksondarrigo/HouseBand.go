@@ -49,13 +49,16 @@ func (player *MusicPlayer) Run() {
 	}
 	for player.Started && !player.isEmpty() {
 		player.CurrentSong = player.nextSong()
-		streamUrl, err := player.CurrentSong.GetStream()
+		streamUrl, err := player.CurrentSong.GetStreamURL()
 		if err != nil {
-			player.Messages <- Message{ChannelId: player.CurrentSong.InteractionChannel, Content: "**Error Playing:** `" + player.CurrentSong.Title + "`; *skipping song*"}
+			player.Messages <- Message{ChannelId: player.CurrentSong.InteractionChannel, Content: "Error: Could not retrieve stream for `" + player.CurrentSong.Title + "`: " + err.Error()}
 			continue
 		}
 		player.Messages <- Message{ChannelId: player.CurrentSong.InteractionChannel, Content: "**Now Playing:** `" + player.CurrentSong.Title + "`"}
-		player.play(streamUrl)
+		err = player.play(streamUrl)
+		if err != nil {
+			player.Messages <- Message{ChannelId: player.CurrentSong.InteractionChannel, Content: "Error: There was a problem during playback: " + err.Error()}
+		}
 	}
 	err = player.Speaking(false)
 	if err != nil {
@@ -63,8 +66,11 @@ func (player *MusicPlayer) Run() {
 	}
 }
 
-func (player *MusicPlayer) play(streamUrl string) {
-	stream := stream.New(streamUrl)
+func (player *MusicPlayer) play(streamUrl string) (err error) {
+	stream, err := stream.New(streamUrl)
+	if err != nil {
+		return
+	}
 	go stream.Get()
 	for {
 		select {

@@ -24,13 +24,13 @@ type Stream struct {
 	Audio chan []byte
 }
 
-func New(url string) *Stream {
+func New(url string) (*Stream, error) {
 	opusEncoder, err := gopus.NewEncoder(frameRate, channels, gopus.Audio)
 	if err != nil {
 		log.Println("[gopus] NewEncoder Error: ", err)
-		return nil
+		return nil, err
 	}
-	return &Stream{opusEncoder, url, make(chan []byte, 2)}
+	return &Stream{opusEncoder, url, make(chan []byte, 2)}, nil
 }
 
 func (stream *Stream) Get() {

@@ -66,7 +66,7 @@ func checkAgeVerification(err error, output string) error {
 	return err
 }
 
-func (r Request) GetStream() (string, error) {
+func (r Request) GetStreamURL() (string, error) {
 	streamUrl, err := exec.Command("youtube-dl", "-f", "bestaudio", "-g", r.ReqURL).Output()
 	if err != nil {
 		return "", err
