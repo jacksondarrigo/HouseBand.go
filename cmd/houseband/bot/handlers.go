@@ -102,7 +102,13 @@ func (bot *Bot) getPlayer(interact *discordgo.InteractionCreate, voiceChannel *d
 func (bot *Bot) startPlayer(musicPlayer *player.MusicPlayer, interact *discordgo.InteractionCreate, voiceChannel *discordgo.VoiceState) {
 	// Connect the music player to a voice channel, then start the main player loop. Cleanup afterwards
 	var err error
-	musicPlayer.VoiceConnection, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
+	var attempts int = 0
+	for musicPlayer.VoiceConnection == nil && attempts < 3 {
+		musicPlayer.VoiceConnection, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
+		if err != nil {
+			attempts++
+		}
+	}
 	if err != nil {
 		musicPlayer.Messages <- player.Message{ChannelId: interact.ChannelID, Content: "Error: Cannot join voice channel: " + err.Error()}
 	} else {
