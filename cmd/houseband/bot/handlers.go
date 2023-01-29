@@ -21,7 +21,6 @@ func (bot *Bot) interactionHandler(session *discordgo.Session, i *discordgo.Inte
 
 // TODO: Implement component handler
 func (bot *Bot) componentHandler(i *discordgo.InteractionCreate) {
-	return
 }
 
 func (bot *Bot) commandHandler(interaction *discordgo.InteractionCreate) {
@@ -52,6 +51,7 @@ func (bot *Bot) commandHandler(interaction *discordgo.InteractionCreate) {
 		go bot.queue(interaction, interactionResponse)
 	}
 	response := <-interactionResponse
+	close(interactionResponse)
 	_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
 		Content: &response,
 	})
@@ -70,69 +70,82 @@ func (bot *Bot) play(interact *discordgo.InteractionCreate, interactionResponse 
 		return
 	}
 
-	// Get song query and create request object
+	// Get song query
 	var query string = interact.ApplicationCommandData().Options[0].StringValue()
-	req, err := request.New(query, interact.ChannelID)
-	if err != nil {
-		response := "Error: Could not complete request for `" + query + "`: " + err.Error()
+
+	// **
+	// ** Note:
+	// ** 	Logic for determining whether the music player exists can likely be moved here,
+	// ** allowing us to improve clarity by calling getPlayer() and createPlayer() together
+	// **
+
+	// Get guild music player if it exists; if it does not exist, create one
+	musicPlayer, err := bot.getPlayer(interact, voiceChannel)
+	if musicPlayer == nil {
+		response := "Error: Cannot join voice channel: " + err.Error()
 		interactionResponse <- response
 		return
 	}
-	response := interact.Member.User.Username + " requested: [`" + req.Title + "`](" + req.ReqURL + ")"
-	interactionResponse <- response
 
-	// Get/create music player and add request to queue
-	musicPlayer := bot.getPlayer(interact, voiceChannel)
-	musicPlayer.AddToQueue(req)
+	// Generate request object(s)
+	songRequests := make(chan *request.Request)
+	go request.Generate(query, interact.ChannelID, songRequests)
 
+	// Receive request object(s) and add them to queue
+	for {
+		songRequest, ok := <-songRequests
+		if !ok {
+			break
+		}
+		musicPlayer.AddToQueue(songRequest)
+	}
 }
 
-func (bot *Bot) getPlayer(interact *discordgo.InteractionCreate, voiceChannel *discordgo.VoiceState) *player.MusicPlayer {
+func (bot *Bot) getPlayer(interact *discordgo.InteractionCreate, voiceChannel *discordgo.VoiceState) (*player.MusicPlayer, error) {
 	// Get the active music player for the guild. If no such player exists, create one
+	var musicPlayer *player.MusicPlayer
 	musicPlayer, ok := bot.musicPlayers[interact.GuildID]
 	if !ok {
-		musicPlayer = player.New()
-		go bot.startPlayer(musicPlayer, interact, voiceChannel)
-		go bot.receiveMessages(musicPlayer)
+		var err error
+		musicPlayer, err = bot.createPlayer(voiceChannel)
+		if err != nil {
+			return nil, err
+		}
 		bot.musicPlayers[interact.GuildID] = musicPlayer
 	}
-	return musicPlayer
+	return musicPlayer, nil
 }
 
-func (bot *Bot) startPlayer(musicPlayer *player.MusicPlayer, interact *discordgo.InteractionCreate, voiceChannel *discordgo.VoiceState) {
-	// Connect the music player to a voice channel, then start the main player loop. Cleanup afterwards
+func (bot *Bot) createPlayer(voiceChannel *discordgo.VoiceState) (*player.MusicPlayer, error) {
 	var err error
-	var attempts int = 0
-	for musicPlayer.VoiceConnection == nil && attempts < 3 {
-		musicPlayer.VoiceConnection, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
+	var vc *discordgo.VoiceConnection
+	for attempts := 0; attempts < 3; attempts++ {
+		vc, err = bot.ChannelVoiceJoin(voiceChannel.GuildID, voiceChannel.ChannelID, false, false)
 		if err != nil {
-			attempts++
+			continue
+		} else {
+			musicPlayer := player.New(vc)
+			go bot.routeMessages(musicPlayer)
+			return musicPlayer, nil
 		}
 	}
-	if err != nil {
-		musicPlayer.Messages <- player.Message{ChannelId: interact.ChannelID, Content: "Error: Cannot join voice channel: " + err.Error()}
-	} else {
-		musicPlayer.Run()
-		musicPlayer.Disconnect()
-	}
-	close(musicPlayer.Messages)
-	delete(bot.musicPlayers, interact.GuildID)
+	return nil, err
 }
 
-func (bot *Bot) receiveMessages(musicPlayer *player.MusicPlayer) {
-	// Receive messages from the music player to forward to a Discord channel (such as "Added to Queue" and "Now Playing" messages, as well as error messages)
+func (bot *Bot) routeMessages(musicPlayer *player.MusicPlayer) {
+	// Route messages from the music player to a Discord channel (such as "Added to Queue" and "Now Playing" messages, as well as error messages)
 	for {
-		select {
-		case message, ok := <-musicPlayer.Messages:
-			if !ok {
-				return
-			}
-			_, err := bot.ChannelMessageSend(message.ChannelId, message.Content)
-			if err != nil {
-				log.Println("Error: Cannot send message to channel: ", err)
-			}
+		message, ok := <-musicPlayer.Messages
+		if !ok {
+			break
+		}
+		_, err := bot.ChannelMessageSend(message.ChannelId, message.Content)
+		if err != nil {
+			log.Println("Error: Cannot send message to channel: ", err)
 		}
 	}
+
+	delete(bot.musicPlayers, musicPlayer.GuildID)
 }
 
 func (bot *Bot) stop(interact *discordgo.InteractionCreate, interactionResponse chan<- string) {

@@ -10,18 +10,14 @@ import (
 )
 
 type MusicPlayer struct {
-	queue
 	*discordgo.VoiceConnection
-	Messages    chan Message
+	Queue       []*request.Request
 	CurrentSong *request.Request
+	Messages    chan Message
 	Started     bool
 	Stop        chan bool
 	Next        chan bool
-}
-
-type queue struct {
-	sync.Mutex
-	Queue []*request.Request
+	Mutex       sync.Mutex
 }
 
 type Message struct {
@@ -29,15 +25,23 @@ type Message struct {
 	Content   string
 }
 
-func New() *MusicPlayer {
-	return &MusicPlayer{queue{Queue: make([]*request.Request, 0, 100)}, &discordgo.VoiceConnection{}, make(chan Message), nil, true, make(chan bool), make(chan bool)}
+func New(vc *discordgo.VoiceConnection) *MusicPlayer {
+	return &MusicPlayer{vc, make([]*request.Request, 0, 100), nil, make(chan Message), false, make(chan bool), make(chan bool), sync.Mutex{}}
 }
 
 func (player *MusicPlayer) AddToQueue(request *request.Request) {
-	player.queue.Lock()
-	defer player.queue.Unlock()
+	player.Mutex.Lock()
+	defer player.Mutex.Unlock()
 	player.Queue = append(player.Queue, request)
 	player.Messages <- Message{ChannelId: request.InteractionChannel, Content: "*Added to Queue:* `" + request.Title + "`"}
+	if !player.Started {
+		player.Started = true
+		go func() {
+			player.Run()
+			player.Disconnect()
+			close(player.Messages)
+		}()
+	}
 }
 
 // Main player loop
@@ -89,8 +93,8 @@ func (player *MusicPlayer) play(streamUrl string) (err error) {
 }
 
 func (player *MusicPlayer) nextSong() *request.Request {
-	player.queue.Lock()
-	defer player.queue.Unlock()
+	player.Mutex.Lock()
+	defer player.Mutex.Unlock()
 	request := player.Queue[0]
 	player.Queue = player.Queue[1:]
 	return request
