@@ -32,7 +32,7 @@ func New(query, channelId string) (*Request, error) {
 	var title string
 	var reqUrl string
 	if isValidURL(query) {
-		output, err := exec.Command("youtube-dl", "-e", query).CombinedOutput()
+		output, err := exec.Command("yt-dlp", "-e", query).CombinedOutput()
 		if err != nil {
 			err = checkAgeVerification(err, string(output))
 			return nil, err
@@ -40,7 +40,7 @@ func New(query, channelId string) (*Request, error) {
 		title = string(output)
 		reqUrl = query
 	} else {
-		output, err := exec.Command("youtube-dl", "-j", "ytsearch:"+query).CombinedOutput()
+		output, err := exec.Command("yt-dlp", "-j", "ytsearch:"+query).CombinedOutput()
 		if err != nil {
 			err = checkAgeVerification(err, string(output))
 			return nil, err
@@ -67,7 +67,7 @@ func checkAgeVerification(err error, output string) error {
 }
 
 func (r Request) GetStreamURL() (string, error) {
-	streamUrl, err := exec.Command("youtube-dl", "-f", "bestaudio", "-g", r.ReqURL).Output()
+	streamUrl, err := exec.Command("yt-dlp", "-f", "bestaudio", "-g", r.ReqURL).Output()
 	if err != nil {
 		return "", err
 	}
