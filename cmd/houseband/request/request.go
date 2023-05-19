@@ -1,7 +1,6 @@
 package request
 
 import (
-	"errors"
 	"regexp"
 )
 
@@ -23,6 +22,34 @@ type Request struct {
 	InteractionChannel string
 	// StreamURL string
 }
+
+// func New(query, channelId string) (*Request, error) {
+// 	var title string
+// 	var reqUrl string
+// 	if isValidURL(query) {
+// 		output, err := exec.Command("yt-dlp", "-e", query).CombinedOutput()
+// 		if err != nil {
+// 			err = checkAgeVerification(err, string(output))
+// 			return nil, err
+// 		}
+// 		title = string(output)
+// 		reqUrl = query
+// 	} else {
+// 		output, err := exec.Command("yt-dlp", "-j", "ytsearch:"+query).CombinedOutput()
+// 		if err != nil {
+// 			err = checkAgeVerification(err, string(output))
+// 			return nil, err
+// 		}
+// 		var info map[string]interface{}
+// 		err = json.Unmarshal(output, &info)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		title = info["title"].(string)
+// 		reqUrl = info["webpage_url"].(string)
+// 	}
+// 	return &Request{reqUrl, strings.TrimSuffix(string(title), "\n"), channelId}, nil
+// }
 
 func Generate(query, channelId string, songRequests chan *Request) {
 	var cmd string = "youtube-dl"
@@ -61,12 +88,21 @@ func (r Request) GetStreamURL() (string, error) {
 	return streamUrl, nil
 }
 
-func checkAgeVerification(err error, output string) error {
-	match, regexerr := regexp.MatchString("ERROR: Sign in to confirm your age", output)
-	if match && regexerr == nil {
-		err = errors.New("this video requires age verification")
-	} else {
-		err = errors.New("there was an error retrieving the video: " + err.Error())
-	}
-	return err
-}
+// func checkAgeVerification(err error, output string) error {
+// 	match, regexerr := regexp.MatchString("ERROR: Sign in to confirm your age", output)
+// 	if match && regexerr == nil {
+// 		err = errors.New("this video requires age verification")
+// 	} else {
+// 		err = errors.New("there was an error retrieving the video: " + err.Error())
+// 	}
+// 	return err
+// }
+
+// defunct - see ytdl.go
+// func (r Request) GetStreamURL() (string, error) {
+// 	streamUrl, err := exec.Command("yt-dlp", "-f", "bestaudio", "-g", r.ReqURL).Output()
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return strings.TrimSuffix(string(streamUrl), "\n"), nil
+// }
