@@ -22,7 +22,7 @@ func ytdlCmdExec(cmd string, cmdOpts []string) map[string]interface{} {
 }
 
 func ytdlGetStream(RequestURL string) (string, error) {
-	streamUrlCmd := exec.Command("youtube-dl", "--no-playlist", "-f", "bestaudio", "-g", RequestURL)
+	streamUrlCmd := exec.Command("yt-dlp", "--no-playlist", "-f", "bestaudio", "-g", RequestURL)
 	streamUrlOutput, err := streamUrlCmd.Output()
 	if err != nil {
 		return "", err

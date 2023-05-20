@@ -52,7 +52,7 @@ type Request struct {
 // }
 
 func Generate(query, channelId string, songRequests chan *Request) {
-	var cmd string = "youtube-dl"
+	var cmd string = "yt-dlp"
 	var title, reqUrl string
 	switch {
 	case regexp.MustCompile("youtube.com/playlist").MatchString(query):
